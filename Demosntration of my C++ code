@@ -1,0 +1,656 @@
+#include <memory>
+#include <iostream>
+#include <vector>
+#include <algorithm>
+using namespace std;
+//abstract class with implementation of common animal behaviour
+class Animal
+{
+private:
+    const string name;
+    int daysLived;
+public:
+    Animal(){}
+    Animal(const string name, int daysLived): name(name), daysLived(daysLived){}
+    Animal(const Animal& other): name(other.name), daysLived(other.daysLived) {}
+    virtual ~Animal() = default;
+    int getDaysLived() const { return daysLived; }
+    string getName() const { return name; }
+    void sayName() { cout << "My name is " << name << ", days lived: " << daysLived << endl; }
+    virtual void attack(Animal& other) = 0;
+    void setDaysLived(int newValue) { daysLived = newValue; }
+};
+
+class Fish: public virtual Animal
+{
+public:
+    Fish(const string name, int daysLived): Animal(name, daysLived){}
+    void attack(Animal &other) override
+    {
+        //The days set to -1 to indicate that attacked animal is dead
+        other.setDaysLived(-1);
+        cout << "Fish is attacking" << endl;
+    }
+};
+
+class Bird: public virtual Animal
+{
+public:
+    Bird(const string name, int daysLived): Animal(name, daysLived){}
+    void attack(Animal &other) override
+    {
+        //The days set to -1 to indicate that attacked animal is dead
+        other.setDaysLived(-1);
+        cout << "Bird is attacking" << endl;
+    }
+};
+
+class Mouse: public virtual Animal
+{
+public:
+    Mouse(const string name, int daysLived): Animal(name, daysLived){}
+    void attack(Animal &other) override
+    {
+        //The days set to -1 to indicate that attacked animal is dead
+        other.setDaysLived(-1);
+        cout << "Mouse is attacking" << endl;
+    }
+};
+
+class BetterFish: public Fish
+{
+public:
+    BetterFish(const string name, int daysLived): Animal(name, daysLived), Fish(name, daysLived){}
+    BetterFish(const Fish& fish): Animal(fish), Fish(fish){}
+    void attack(Animal &other) override
+    {
+        //The days set to -1 to indicate that attacked animal is dead
+        other.setDaysLived(-1);
+        cout << "BetterFish is attacking" << endl;
+    }
+};
+
+class BetterBird: public Bird
+{
+public:
+    BetterBird(const string name, int daysLived): Animal(name, daysLived), Bird(name, daysLived){}
+    BetterBird(const Bird& bird): Animal(bird), Bird(bird){}
+    void attack(Animal &other) override
+    {
+        //The days set to -1 to indicate that attacked animal is dead
+        other.setDaysLived(-1);
+        cout << "BetterBird is attacking" << endl;
+    }
+};
+
+class BetterMouse: public Mouse
+{
+public:
+    BetterMouse(const string name, int daysLived): Animal(name, daysLived), Mouse(name, daysLived){}
+    BetterMouse(const Mouse& mouse): Animal(mouse), Mouse(mouse){}
+    void attack(Animal &other) override
+    {
+        //The days set to -1 to indicate that attacked animal is dead
+        other.setDaysLived(-1);
+        cout << "BetterMouse is attacking" << endl;
+    }
+};
+
+class Monster: public BetterFish, public BetterBird, public BetterMouse
+{
+public:
+    //The daysLived of monster set to 1 since it can live at most 1 day
+    Monster(string name): Animal(name, 1), BetterFish(name, 1), BetterBird(name, 1), BetterMouse(name, 1){}
+    Monster(Animal& animal): Animal(animal), BetterFish(animal.getName(), 1), BetterBird(animal.getName(), 1), BetterMouse(animal.getName(), 1){}
+    void attack(Animal &other) override
+    {
+        //The days set to -1 to indicate that attacked animal is dead
+        other.setDaysLived(-1);
+        cout << "Monster is attacking" << endl;
+    }
+};
+
+//The container class implement all needed logic for containers of Animals: store them, sort and clean from dead
+template <typename T>
+class Container
+{
+private:
+    vector<Animal*> container;
+public:
+     ~Container()
+    {
+        for(auto& animal : container)
+            delete animal;
+    }
+    int size()
+     {
+         return container.size();
+     }
+    void add(Animal* value)
+    {
+        container.push_back(value);
+    }
+    Animal* getValue(int position)
+    {
+        return container[position];
+    }
+    void remove(int position)
+    {
+        container.erase(container.begin() + position);
+    }
+    //Sorting in ascending order of living days or if they are equal in lexicographical order
+    void sortTheContainer()
+    {
+         //create my own comparator
+        sort(container.begin(), container.end(), [](Animal* a, Animal* b) {
+            if(a->getDaysLived() == b->getDaysLived())
+                return a->getName() < b->getName();
+            return a->getDaysLived() < b->getDaysLived();
+        });
+    }
+    //This function increment living days for all animals within the container (used in period function)
+    void increaseDaysLiving()
+    {
+        for(auto animal : container)
+            animal->setDaysLived(animal->getDaysLived() + 1);
+    }
+    //This function clean the container from dead animals
+    //we might have Monster inside with another system of dying of old age
+    void cleanTheContainer()
+     {
+         int i = 0;
+         //the command remove modify the vector, that's why I use while to better maintain indexes
+         while(i < container.size())
+         {
+             if(container[i]->getDaysLived() < 0)
+             {
+                 delete container[i];
+                 remove(i);
+             }
+             //If dynamic_cast is working then we have Monster, which can live at most 1 day
+             else if(dynamic_cast<Monster*>(container[i]))
+             {
+                 if(container[i]->getDaysLived() > 1)
+                 {
+                     cout << container[i]->getName() + " has died of old days" << endl;
+                     delete container[i];
+                     remove(i);
+                 }
+                 else
+                 {
+                     i++;
+                 }
+             }
+             else
+             {
+                 //for other type of Animals
+                 if(container[i]->getDaysLived() > 10)
+                 {
+                     cout << container[i]->getName() + " has died of old days" << endl;
+                     delete container[i];
+                     remove(i);
+                 }
+                 //remove animal which were killed by other animal (-1 is special indicator of killed animals)
+                 else if(container[i]->getDaysLived() == -1)
+                 {
+                     remove(i);
+                 }
+                 else
+                 {
+                     i++;
+                 }
+             }
+         }
+     }
+    void makeContainerEmpty()
+     {
+         container.clear();
+     }
+};
+//Since Cage, Aquarium, Freedom do not really differ we will have same implementation as in Container class
+template <typename T> class Cage: public Container<T>{};
+template <typename T> class Aquarium: public Container<T>{};
+template <typename T> class Freedom: public Container<T>{};
+//We cant create Cage with fish and better fish, or Aquarium with bird or better bird
+template <> class Cage<Fish>
+{
+public:
+    Cage() = delete;
+};
+template <> class Cage<BetterFish>
+{
+public:
+    Cage() = delete;
+};
+template <> class Aquarium<Bird>
+{
+public:
+    Aquarium() = delete;
+};
+template <> class Aquarium<BetterBird>
+{
+public:
+    Aquarium() = delete;
+};
+//All these functions are for creation of different type of Animals, so they have nearly same logic
+void createBird(Container<Bird>* container, string name, int daysLived)
+{
+    Bird *bird = new Bird(name, daysLived);
+    bird->sayName();
+    container->add(bird);
+    container->sortTheContainer();
+}
+void createBetterBird(Container<BetterBird>* container, string name, int daysLived)
+{
+    BetterBird* betterBird = new BetterBird(name, daysLived);
+    betterBird->sayName();
+    container->add(betterBird);
+    container->sortTheContainer();
+}
+void createFish(Container<Fish>* container, string name, int daysLived)
+{
+    Fish* fish = new Fish(name, daysLived);
+    fish->sayName();
+    container->add(fish);
+    container->sortTheContainer();
+}
+void createBetterFish(Container<BetterFish>* container, string name, int daysLived)
+{
+    BetterFish* betterFish = new BetterFish(name, daysLived);
+    betterFish->sayName();
+    container->add(betterFish);
+    container->sortTheContainer();
+}
+void createMouse(Container<Mouse>* container, string name, int daysLived)
+{
+    Mouse* mouse = new Mouse(name, daysLived);
+    mouse->sayName();
+    container->add(mouse);
+    container->sortTheContainer();
+}
+void createBetterMouse(Container<BetterMouse>* container, string name, int daysLived)
+{
+    BetterMouse* betterMouse = new BetterMouse(name, daysLived);
+    betterMouse->sayName();
+    container->add(betterMouse);
+    container->sortTheContainer();
+}
+//We create some Animal outside the function and here just add it to the freedom
+template <typename T> void createAnimalInFreedom(Container<Animal>* freedom, T* animal)
+{
+    animal->sayName();
+    freedom->add(animal);
+    freedom->sortTheContainer();
+}
+/*The logic for applying substance to non better and better animals differ.
+ *Here animal is just move to container of better versions.
+ *T-the type of animal, V-the type of better version of it
+ */
+template <typename T, typename V> void applySubstanceToNonBetterAnimals(Container<T>* nonBetterAnimals, Container<V>* betterAnimals,
+    string animalType, int position) {
+    //Check for valid position
+    if (position >= nonBetterAnimals->size())
+    {
+        cout << "Animal not found" << endl;
+        return;
+    }
+    string name = nonBetterAnimals->getValue(position)->getName();
+    //new days of living, which are half less than old ones but with rounding up
+    int newDaysLiving = ((nonBetterAnimals->getValue(position)->getDaysLived()) + 2 - 1)/2;
+    nonBetterAnimals->remove(position);
+    //we update container so we need to sort it
+    nonBetterAnimals->sortTheContainer();
+    /*by finding which type of animal we applied the substance we can create needed better version
+     * I had an error where all these ifs statements computed in compile time, therefore failing, because they are trying to convert, for example Mouse to Bird
+     * I find in Internet way to make if statement for compile time with "if constexpr"
+     */
+    if constexpr (is_same_v<V, BetterMouse>) {
+            BetterMouse* betterMouse = new BetterMouse(name, newDaysLiving);
+            betterAnimals->add(betterMouse);
+            betterAnimals->sortTheContainer();
+    }
+    else if constexpr (is_same_v<V, BetterBird>)
+    {
+            BetterBird* betterBird = new BetterBird(name, newDaysLiving);
+            betterAnimals->add(betterBird);
+            betterAnimals->sortTheContainer();
+    }
+    if constexpr (is_same_v<V, BetterFish>) {
+            BetterFish* betterFish = new BetterFish(name, newDaysLiving);
+            betterAnimals->add(betterFish);
+            betterAnimals->sortTheContainer();
+    }
+}
+/*Here we apply substance only for better types and convert them to monsters
+ *In this function we know to which container we will pass and which type of animal needed to be created (Monster)
+ */
+template <typename T> void applySubstanceToBetterAnimals(Container<T>* betterAnimals, Container<Animal>* freedom, int position)
+{
+    //check for valid position
+    if (position >= betterAnimals->size())
+    {
+        cout << "Animal not found" << endl;
+        return;
+    }
+    string name = betterAnimals->getValue(position)->getName();
+    Monster* monster = new Monster(name);
+    freedom->add(&*monster);
+    freedom->sortTheContainer();
+    //Monster kill every animal in container
+    betterAnimals->makeContainerEmpty();
+}
+/*The function remove substance only from better animals and move it to non better animal container
+ *T-better animal type, V-non better animal type
+ */
+template <typename T, typename V> void removeSubstance(Container<T>* betterAnimals, Container<V>* nonBetterAnimals,
+    string animalType, int position)
+{
+    //check for valid position
+    if (position >= betterAnimals->size())
+    {
+        cout << "Animal not found" << endl;
+        return;
+    }
+    string name = betterAnimals->getValue(position)->getName();
+    //doubling days after removing substance
+    int newDaysLiving = ((betterAnimals->getValue(position)->getDaysLived()))*2;
+    betterAnimals->remove(position);
+    //we update container so we need to sort it
+    betterAnimals->sortTheContainer();
+    /*I had an error where all these ifs statements computed in compile time, therefore failing, because they are trying to convert, for example Mouse to Bird
+     * I find in Internet way to make if statement for compile time with "if constexpr"
+     */
+    if constexpr (is_same_v<V, Mouse>) {
+            Mouse* mouse = new Mouse(name, newDaysLiving);
+            nonBetterAnimals->add(mouse);
+            nonBetterAnimals->sortTheContainer();
+    } else if constexpr (is_same_v<V, Bird>) {
+            Bird* bird = new Bird(name, newDaysLiving);
+            nonBetterAnimals->add(bird);
+            nonBetterAnimals->sortTheContainer();
+    } else if constexpr (is_same_v<V, Fish>) {
+            Fish* fish = new Fish(name, newDaysLiving);
+            nonBetterAnimals->add(fish);
+            nonBetterAnimals->sortTheContainer();
+    }
+}
+//talk for all containers except Animal*
+template <typename T> void talk(Container<T>* someContainerWithAnimals, int position)
+{
+    //check for valid position
+    if (position >= someContainerWithAnimals->size())
+    {
+        cout << "Animal not found" << endl;
+        return;
+    }
+    someContainerWithAnimals->getValue(position)->sayName();
+}
+//talk function only for Animal* container
+void talk(Container<Animal>* someContainerWithAnimals, int position)
+{
+    //check for valid position
+    if (position >= someContainerWithAnimals->size())
+    {
+        cout << "Animal not found" << endl;
+        return;
+    }
+    someContainerWithAnimals->getValue(position)->sayName();
+}
+//function implement attacking mechanism of two animals of type T in container
+template <typename T> void attack(Container<T>* someContainerWithAnimals, int attackingAnimalPosition, int attackedAnimalPosition)
+{
+    //check that both attackingAnimalPosition and attackedAnimalPosition are valid
+    if (attackingAnimalPosition >= someContainerWithAnimals->size() || attackedAnimalPosition >= someContainerWithAnimals->size())
+    {
+        cout << "Animal not found" << endl;
+        return;
+    }
+    //calling attack method from the T animal class
+    someContainerWithAnimals->getValue(attackingAnimalPosition)->attack(*someContainerWithAnimals->getValue(attackedAnimalPosition));
+    //clean from dead animal
+    someContainerWithAnimals->cleanTheContainer();
+    //sort after updating container
+    someContainerWithAnimals->sortTheContainer();
+}
+//This function just help to call same code in period function
+template <typename T> void periodHelper(Container<T>* container)
+{
+    //increment number of days
+    container->increaseDaysLiving();
+    //clean container from animals which are dead due to old age
+    container->cleanTheContainer();
+    //sort after updating container
+    container->sortTheContainer();
+}
+//This function increment number of days in each container for each animal and remove dead ones
+void period(Container<Bird>* cageForBirds,
+            Container<BetterBird>* cageForBetterBirds,
+            Container<Mouse>* cageForMice,
+            Container<BetterMouse>* cageForBetterMice,
+            Container<Fish>* aquariumForFish,
+            Container<BetterFish>* aquariumForBetterFish,
+            Container<Mouse>* aquariumForMice,
+            Container<BetterMouse>* aquariumForBetterMice,
+            Container<Animal>* freedom)
+{
+    periodHelper(cageForBirds);
+    periodHelper(cageForBetterBirds);
+    periodHelper(cageForMice);
+    periodHelper(cageForBetterMice);
+    periodHelper(aquariumForFish);
+    periodHelper(aquariumForBetterFish);
+    periodHelper(aquariumForMice);
+    periodHelper(aquariumForBetterMice);
+    periodHelper(freedom);
+}
+/*This function decide which function needed to be called based on command name
+ * It reads tokens from the input based on command name
+ */
+void commandRouter(const string& commandName,
+                   Container<Bird>* cageForBirds,
+                   Container<BetterBird>* cageForBetterBirds,
+                   Container<Mouse>* cageForMice,
+                   Container<BetterMouse>* cageForBetterMice,
+                   Container<Fish>* aquariumForFish,
+                   Container<BetterFish>* aquariumForBetterFish,
+                   Container<Mouse>* aquariumForMice,
+                   Container<BetterMouse>* aquariumForBetterMice,
+                   Container<Animal>* freedom)
+{
+    if (commandName == "CREATE")
+    {
+        string typeOfAnimal;
+        cin >> typeOfAnimal;
+        string name;
+        cin >> name;
+        string typeOfContainer;
+        cin >> typeOfContainer;
+        cin >> typeOfContainer;
+        int daysLived;
+        cin >> daysLived;
+        //all possible variants of creation animal
+        if (typeOfAnimal == "M" && typeOfContainer == "Cage") createMouse(cageForMice, name, daysLived);
+        else if (typeOfAnimal == "M" && typeOfContainer == "Aquarium") createMouse(aquariumForMice, name, daysLived);
+        else if (typeOfAnimal == "BM" && typeOfContainer == "Cage") createBetterMouse(cageForBetterMice, name, daysLived);
+        else if (typeOfAnimal == "BM" && typeOfContainer == "Aquarium") createBetterMouse(aquariumForBetterMice, name, daysLived);
+        else if (typeOfAnimal == "M" && typeOfContainer == "Freedom")
+        {
+            Mouse* mouse = new Mouse(name, daysLived);
+            createAnimalInFreedom(freedom, mouse);
+        }
+        else if (typeOfAnimal == "BM" && typeOfContainer == "Freedom")
+        {
+            BetterMouse* betterMouse = new BetterMouse(name, daysLived);
+            createAnimalInFreedom(freedom, betterMouse);
+        }
+        else if (typeOfAnimal == "B" && typeOfContainer == "Cage") createBird(cageForBirds, name, daysLived);
+        else if (typeOfAnimal == "BB" && typeOfContainer == "Cage") createBetterBird(cageForBetterBirds, name, daysLived);
+        else if (typeOfAnimal == "B" && typeOfContainer == "Freedom")
+        {
+            Bird* bird = new Bird(name, daysLived);
+            createAnimalInFreedom(freedom, bird);
+        }
+        else if (typeOfAnimal == "BB" && typeOfContainer == "Freedom")
+        {
+            BetterBird* betterBird = new BetterBird(name, daysLived);
+            createAnimalInFreedom(freedom, betterBird);
+        }
+        else if (typeOfAnimal == "F" && typeOfContainer == "Aquarium") createFish(aquariumForFish, name, daysLived);
+        else if (typeOfAnimal == "BF" && typeOfContainer == "Aquarium") createBetterFish(aquariumForBetterFish, name, daysLived);
+        else if (typeOfAnimal == "F" && typeOfContainer == "Freedom")
+        {
+            Fish *fish = new Fish(name, daysLived);
+            createAnimalInFreedom(freedom, fish);
+        }
+        else if (typeOfAnimal == "BF" && typeOfContainer == "Freedom")
+        {
+            BetterFish* betterFish = new BetterFish(name, daysLived);
+            createAnimalInFreedom(freedom, betterFish);
+        }
+    }
+    else if (commandName == "APPLY_SUBSTANCE")
+    {
+        string typeOfContainer;
+        cin >> typeOfContainer;
+        //checking for applying substance in freedom and skipping type token
+        if (typeOfContainer == "Freedom")
+        {
+            int position;
+            cin >> position;
+            cout << "Substance cannot be applied in freedom" << endl;
+            return;
+        }
+        string typeOfAnimal;
+        cin >> typeOfAnimal;
+        int position;
+        cin >> position;
+        //all possible variants of applying substance
+        if (typeOfAnimal == "M" && typeOfContainer == "Cage") applySubstanceToNonBetterAnimals(cageForMice, cageForBetterMice, typeOfAnimal, position);
+        else if (typeOfAnimal == "M" && typeOfContainer == "Aquarium") applySubstanceToNonBetterAnimals(aquariumForMice, aquariumForBetterMice, typeOfAnimal, position);
+        else if (typeOfAnimal == "B" && typeOfContainer == "Cage") applySubstanceToNonBetterAnimals(cageForBirds, cageForBetterBirds, typeOfAnimal, position);
+        else if (typeOfAnimal == "F" && typeOfContainer == "Aquarium") applySubstanceToNonBetterAnimals(aquariumForFish, aquariumForBetterFish, typeOfAnimal, position);
+        else if (typeOfAnimal == "BM" && typeOfContainer == "Cage") applySubstanceToBetterAnimals(cageForBetterMice, freedom, position);
+        else if (typeOfAnimal == "BM" && typeOfContainer == "Aquarium") applySubstanceToBetterAnimals(aquariumForBetterMice, freedom, position);
+        else if (typeOfAnimal == "BB" && typeOfContainer == "Cage") applySubstanceToBetterAnimals(cageForBetterBirds, freedom, position);
+        else if (typeOfAnimal == "BF" && typeOfContainer == "Aquarium") applySubstanceToBetterAnimals(aquariumForBetterFish, freedom, position);
+    }
+    else if (commandName == "REMOVE_SUBSTANCE")
+    {
+        string typeOfContainer;
+        cin >> typeOfContainer;
+        //checking for removing substance in freedom and skipping type token
+        if (typeOfContainer == "Freedom")
+        {
+            int position;
+            cin >> position;
+            cout << "Substance cannot be removed in freedom" << endl;
+            return;
+        }
+        string typeOfAnimal;
+        cin >> typeOfAnimal;
+        int position;
+        cin >> position;
+        //Substance can be removed only from better types
+        if (typeOfAnimal == "M" || typeOfAnimal == "F" || typeOfAnimal == "B") {
+            cout << "Invalid substance removal" << endl;
+        }
+        else if (typeOfAnimal == "BM" && typeOfContainer == "Cage") removeSubstance<BetterMouse, Mouse>(cageForBetterMice, cageForMice, typeOfAnimal, position);
+        else if (typeOfAnimal == "BM" && typeOfContainer == "Aquarium") removeSubstance<BetterMouse, Mouse>(aquariumForBetterMice, aquariumForMice, typeOfAnimal, position);
+        else if (typeOfAnimal == "BB" && typeOfContainer == "Cage") removeSubstance<BetterBird, Bird>(cageForBetterBirds, cageForBirds, typeOfAnimal, position);
+        else if (typeOfAnimal == "BF" && typeOfContainer == "Aquarium") removeSubstance<BetterFish, Fish>(aquariumForBetterFish, aquariumForFish, typeOfAnimal, position);
+    }
+    else if (commandName == "ATTACK")
+    {
+        string typeOfContainer;
+        cin >> typeOfContainer;
+        //checking for attacking in freedom and skipping type token
+        if (typeOfContainer == "Freedom")
+        {
+            int attackingAnimal;
+            cin >> attackingAnimal;
+            int attackedAnimal;
+            cin >> attackedAnimal;
+            cout << "Animals cannot attack in Freedom" << endl;
+            return;
+        }
+        string typeOfAnimal;
+        cin >> typeOfAnimal;
+        int attackingAnimal;
+        cin >> attackingAnimal;
+        int attackedAnimal;
+        cin >> attackedAnimal;
+        //all possible variants of attacking
+        if (typeOfAnimal == "M" && typeOfContainer == "Cage") attack(cageForMice, attackingAnimal, attackedAnimal);
+        else if (typeOfAnimal == "BM" && typeOfContainer == "Cage") attack(cageForBetterMice, attackingAnimal, attackedAnimal);
+        else if (typeOfAnimal == "M" && typeOfContainer == "Aquarium") attack(aquariumForMice, attackingAnimal, attackedAnimal);
+        else if (typeOfAnimal == "BM" && typeOfContainer == "Aquarium") attack(aquariumForBetterMice, attackingAnimal, attackedAnimal);
+        else if (typeOfAnimal == "B" && typeOfContainer == "Cage") attack(cageForBirds, attackingAnimal, attackedAnimal);
+        else if (typeOfAnimal == "BB" && typeOfContainer == "Cage") attack(cageForBetterBirds, attackingAnimal, attackedAnimal);
+        else if (typeOfAnimal == "F" && typeOfContainer == "Aquarium") attack(aquariumForFish, attackingAnimal, attackedAnimal);
+        else if (typeOfAnimal == "BF" && typeOfContainer == "Aquarium") attack(aquariumForBetterFish, attackingAnimal, attackedAnimal);
+    }
+    else if (commandName == "TALK")
+    {
+        string typeOfContainer;
+        cin >> typeOfContainer;
+        //checking for freedom container and skipping type token
+        if (typeOfContainer == "Freedom")
+        {
+            int position;
+            cin >> position;
+            talk(freedom, position);
+            return;
+        }
+        string typeOfAnimal;
+        cin >> typeOfAnimal;
+        int position;
+        cin >> position;
+        //all variants of talking
+        if (typeOfAnimal == "M" && typeOfContainer == "Cage") talk(cageForMice, position);
+        else if (typeOfAnimal == "BM" && typeOfContainer == "Cage") talk(cageForBetterMice, position);
+        else if (typeOfAnimal == "M" && typeOfContainer == "Aquarium") talk(aquariumForMice, position);
+        else if (typeOfAnimal == "BM" && typeOfContainer == "Aquarium") talk(aquariumForBetterMice, position);
+        else if (typeOfAnimal == "B" && typeOfContainer == "Cage") talk(cageForBirds, position);
+        else if (typeOfAnimal == "BB" && typeOfContainer == "Cage") talk(cageForBetterBirds, position);
+        else if (typeOfAnimal == "F" && typeOfContainer == "Aquarium") talk(aquariumForFish, position);
+        else if (typeOfAnimal == "BF" && typeOfContainer == "Aquarium") talk(aquariumForBetterFish, position);
+    }
+    else if (commandName == "PERIOD")
+    {
+        period(cageForBirds, cageForBetterBirds, cageForMice, cageForBetterMice,
+            aquariumForFish, aquariumForBetterFish, aquariumForMice, aquariumForBetterMice, freedom);
+    }
+}
+
+int main()
+{
+    int numberOfCommands;
+    string commandName;
+    //creating of all possible containers
+    auto cageForBirds = make_unique<Cage<Bird>>();
+    auto cageForBetterBirds = make_unique<Cage<BetterBird>>();
+    auto cageForMice = make_unique<Cage<Mouse>>();
+    auto cageForBetterMice = make_unique<Cage<BetterMouse>>();
+    auto aquariumForFish = make_unique<Aquarium<Fish>>();
+    auto aquariumForBetterFish = make_unique<Aquarium<BetterFish>>();
+    auto aquariumForMice = make_unique<Aquarium<Mouse>>();
+    auto aquariumForBetterMice = make_unique<Aquarium<BetterMouse>>();
+    auto freedom = make_unique<Freedom<Animal>>();
+
+    cin >> numberOfCommands;
+    for (int i = 0; i < numberOfCommands; i++)
+    {
+        cin >> commandName;
+        commandRouter(commandName,
+                      cageForBirds.get(),
+                      cageForBetterBirds.get(),
+                      cageForMice.get(),
+                      cageForBetterMice.get(),
+                      aquariumForFish.get(),
+                      aquariumForBetterFish.get(),
+                      aquariumForMice.get(),
+                      aquariumForBetterMice.get(),
+                      freedom.get());
+    }
+    return 0;
+}
